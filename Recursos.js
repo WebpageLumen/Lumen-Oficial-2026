@@ -88,9 +88,11 @@ function switchLanguage(lang) {
   localStorage.setItem("lumen-lang", lang);
   document.getElementById("langLabel").textContent = LANG_META[lang].label;
   document.getElementById("langFlag").src = LANG_META[lang].flagSrc;
+
   document.querySelectorAll(".lang-option").forEach(opt => {
     opt.classList.toggle("selected", opt.dataset.lang === lang);
   });
+
   applyTranslations(lang);
   closeLangDropdown();
 }
