@@ -261,7 +261,7 @@ categoryItems.forEach(item => {
     // Verificamos si el botón presionado es "Lenguaje Figurado"
     if (item.dataset.i18n === "cat_figurative") {
       // Array con las páginas a elegir al azar
-      const paginasLF = ["LF-sofia.html", "LF-pedro.html", "LF-juan.html"];
+      const paginasLF = ["LF-sofia.html", "LF-pedro.html"];
       // Seleccionar un elemento al azar del array
       const paginaAleatoria = paginasLF[Math.floor(Math.random() * paginasLF.length)];
       // Abrir la página elegida en una nueva pestaña
