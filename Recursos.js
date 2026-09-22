@@ -80,140 +80,155 @@ const LANG_META = {
 let currentLang = localStorage.getItem("lumen-lang") || "es";
 
 /* =========================================================
-   APLICAR TRADUCCIONES
-   (No depende del navbar: siempre puede correr aunque
-   falten botones de idioma/tema en la página)
+   TODO EL CÓDIGO QUE TOCA EL DOM SE EJECUTA CUANDO EL
+   DOCUMENTO YA ESTÁ LISTO. Así no importa si este <script>
+   está en el <head> o al final del <body>: el navbar ya
+   existe cuando intentamos leerlo.
 ========================================================= */
-function applyTranslations(lang) {
-  const dict = TRANSLATIONS[lang];
-  if (!dict) return;
+document.addEventListener("DOMContentLoaded", () => {
 
-  document.querySelectorAll("[data-i18n]").forEach(el => {
-    const key = el.dataset.i18n;
-    if (dict[key] !== undefined) el.innerHTML = dict[key];
+  /* =========================================================
+     APLICAR TRADUCCIONES
+  ========================================================= */
+  function applyTranslations(lang) {
+    const dict = TRANSLATIONS[lang];
+    if (!dict) return;
+
+    document.querySelectorAll("[data-i18n]").forEach(el => {
+      const key = el.dataset.i18n;
+      if (dict[key] !== undefined) el.innerHTML = dict[key];
+    });
+
+    document.documentElement.lang = LANG_META[lang].htmlLang;
+  }
+
+  /* =========================================================
+     SINCRONIZAR EL INDICADOR DE IDIOMA (bandera + ES/EN)
+     Única responsable de que la bandera y las letras ES/EN
+     reflejen SIEMPRE el idioma guardado en localStorage.
+  ========================================================= */
+  function syncLangIndicator(lang) {
+    const langLabelEl = document.getElementById("langLabel");
+    const langFlagEl  = document.getElementById("langFlag");
+    if (langLabelEl) langLabelEl.textContent = LANG_META[lang].label;
+    if (langFlagEl)  langFlagEl.src = LANG_META[lang].flagSrc;
+
+    document.querySelectorAll(".lang-option").forEach(opt => {
+      opt.classList.toggle("selected", opt.dataset.lang === lang);
+    });
+  }
+
+  /* =========================================================
+     CAMBIO DE IDIOMA
+     Guarda en localStorage para que CUALQUIER otra página
+     del sitio arranque ya con el idioma y la bandera correctos.
+  ========================================================= */
+  function switchLanguage(lang) {
+    currentLang = lang;
+    localStorage.setItem("lumen-lang", lang);
+
+    syncLangIndicator(lang);
+    applyTranslations(lang);
+    closeLangDropdown();
+  }
+
+  /* =========================================================
+     DROPDOWN DE IDIOMA
+  ========================================================= */
+  const langBtn = document.getElementById("langBtn");
+  const langDropdown = document.getElementById("langDropdown");
+
+  function openLangDropdown() {
+    langDropdown?.classList.add("open");
+    langBtn?.setAttribute("aria-expanded", "true");
+  }
+
+  function closeLangDropdown() {
+    langDropdown?.classList.remove("open");
+    langBtn?.setAttribute("aria-expanded", "false");
+  }
+
+  function toggleLangDropdown() {
+    if (!langDropdown) return;
+    langDropdown.classList.contains("open") ? closeLangDropdown() : openLangDropdown();
+  }
+
+  langBtn?.addEventListener("click", e => {
+    e.stopPropagation();
+    toggleLangDropdown();
   });
-
-  document.documentElement.lang = LANG_META[lang].htmlLang;
-}
-
-/* =========================================================
-   CAMBIO DE IDIOMA
-   Cada acceso a un elemento usa "?." para que, si ese
-   elemento no existe en esta página, no rompa el script.
-========================================================= */
-function switchLanguage(lang) {
-  currentLang = lang;
-  localStorage.setItem("lumen-lang", lang);
-
-  const langLabelEl = document.getElementById("langLabel");
-  const langFlagEl  = document.getElementById("langFlag");
-  if (langLabelEl) langLabelEl.textContent = LANG_META[lang].label;
-  if (langFlagEl)  langFlagEl.src = LANG_META[lang].flagSrc;
 
   document.querySelectorAll(".lang-option").forEach(opt => {
-    opt.classList.toggle("selected", opt.dataset.lang === lang);
+    opt.addEventListener("click", () => switchLanguage(opt.dataset.lang));
+    opt.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        switchLanguage(opt.dataset.lang);
+      }
+    });
   });
 
-  applyTranslations(lang);
-  closeLangDropdown();
-}
+  /* =========================================================
+     DROPDOWNS DE NAVEGACIÓN
+  ========================================================= */
+  document.querySelectorAll(".nav-item").forEach(item => {
+    const dropdown = item.querySelector(".nav-dropdown");
+    if (!dropdown) return;
 
-/* =========================================================
-   DROPDOWN DE IDIOMA
-========================================================= */
-const langBtn = document.getElementById("langBtn");
-const langDropdown = document.getElementById("langDropdown");
+    let closeTimeout;
+    function abrir() { clearTimeout(closeTimeout); dropdown.classList.add("show"); }
+    function cerrar() { closeTimeout = setTimeout(() => dropdown.classList.remove("show"), 500); }
 
-function openLangDropdown() {
-  langDropdown?.classList.add("open");
-  langBtn?.setAttribute("aria-expanded", "true");
-}
-
-function closeLangDropdown() {
-  langDropdown?.classList.remove("open");
-  langBtn?.setAttribute("aria-expanded", "false");
-}
-
-function toggleLangDropdown() {
-  if (!langDropdown) return;
-  langDropdown.classList.contains("open") ? closeLangDropdown() : openLangDropdown();
-}
-
-langBtn?.addEventListener("click", e => {
-  e.stopPropagation();
-  toggleLangDropdown();
-});
-
-document.querySelectorAll(".lang-option").forEach(opt => {
-  opt.addEventListener("click", () => switchLanguage(opt.dataset.lang));
-  opt.addEventListener("keydown", e => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      switchLanguage(opt.dataset.lang);
-    }
+    item.addEventListener("mouseenter", abrir);
+    item.addEventListener("mouseleave", cerrar);
+    dropdown.addEventListener("mouseenter", abrir);
+    dropdown.addEventListener("mouseleave", cerrar);
   });
+
+  document.addEventListener("click", () => {
+    closeLangDropdown();
+    document.querySelectorAll(".nav-item.open").forEach(i => i.classList.remove("open"));
+  });
+
+  /* =========================================================
+     SISTEMA DE MODO CALMA
+  ========================================================= */
+  const themeBtn = document.getElementById("themeBtn");
+  const themeIcon = document.getElementById("themeIcon");
+
+  const THEME_ICONS = { normal: "☀️", calm: "🌙" };
+  const THEME_LABELS = { normal: "Modo calma", calm: "Modo normal" };
+
+  function getInitialTheme() {
+    return localStorage.getItem("lumen-theme") || "normal";
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    if (themeIcon) themeIcon.textContent = THEME_ICONS[theme];
+
+    const labelEl = document.getElementById("themeLabel");
+    if (labelEl) labelEl.textContent = THEME_LABELS[theme];
+
+    themeBtn?.setAttribute(
+      "aria-label",
+      theme === "normal" ? "Activar modo calma" : "Volver al modo normal"
+    );
+
+    localStorage.setItem("lumen-theme", theme);
+  }
+
+  themeBtn?.addEventListener("click", () => {
+    const temaActual = document.documentElement.getAttribute("data-theme") || "normal";
+    applyTheme(temaActual === "normal" ? "calm" : "normal");
+  });
+
+  /* =========================================================
+     APLICAR ESTADO GUARDADO AL CARGAR LA PÁGINA
+     Corre siempre, sin importar qué elementos del navbar
+     existan o falten en esta página en particular.
+  ========================================================= */
+  applyTheme(getInitialTheme());
+  switchLanguage(currentLang);
+
 });
-
-/* =========================================================
-   DROPDOWNS DE NAVEGACIÓN
-========================================================= */
-document.querySelectorAll(".nav-item").forEach(item => {
-  const dropdown = item.querySelector(".nav-dropdown");
-  if (!dropdown) return;
-
-  let closeTimeout;
-  function abrir() { clearTimeout(closeTimeout); dropdown.classList.add("show"); }
-  function cerrar() { closeTimeout = setTimeout(() => dropdown.classList.remove("show"), 500); }
-
-  item.addEventListener("mouseenter", abrir);
-  item.addEventListener("mouseleave", cerrar);
-  dropdown.addEventListener("mouseenter", abrir);
-  dropdown.addEventListener("mouseleave", cerrar);
-});
-
-document.addEventListener("click", () => {
-  closeLangDropdown();
-  document.querySelectorAll(".nav-item.open").forEach(i => i.classList.remove("open"));
-});
-
-/* =========================================================
-   SISTEMA DE MODO CALMA
-========================================================= */
-const themeBtn = document.getElementById("themeBtn");
-const themeIcon = document.getElementById("themeIcon");
-
-const THEME_ICONS = { normal: "☀️", calm: "🌙" };
-const THEME_LABELS = { normal: "Modo calma", calm: "Modo normal" };
-
-function getInitialTheme() {
-  return localStorage.getItem("lumen-theme") || "normal";
-}
-
-function applyTheme(theme) {
-  document.documentElement.setAttribute("data-theme", theme);
-  if (themeIcon) themeIcon.textContent = THEME_ICONS[theme];
-
-  const labelEl = document.getElementById("themeLabel");
-  if (labelEl) labelEl.textContent = THEME_LABELS[theme];
-
-  themeBtn?.setAttribute(
-    "aria-label",
-    theme === "normal" ? "Activar modo calma" : "Volver al modo normal"
-  );
-
-  localStorage.setItem("lumen-theme", theme);
-}
-
-themeBtn?.addEventListener("click", () => {
-  const temaActual = document.documentElement.getAttribute("data-theme") || "normal";
-  applyTheme(temaActual === "normal" ? "calm" : "normal");
-});
-
-/* =========================================================
-   APLICAR ESTADO GUARDADO AL CARGAR LA PÁGINA
-   Esto corre siempre, incluso si algún botón del navbar
-   no existe en esta página, así la traducción y la bandera
-   nunca se pierden al pasar de página.
-========================================================= */
-applyTheme(getInitialTheme());
-switchLanguage(currentLang);
